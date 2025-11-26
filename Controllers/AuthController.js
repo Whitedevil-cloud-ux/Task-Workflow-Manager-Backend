@@ -4,6 +4,7 @@ const { createSecretToken } = require("../Util/SecretToken");
 
 module.exports.signup = async (req, res) => {
     try{
+        console.log("Signup request received: ", req.body);
         const {name, email, password, avatar, role} = req.body;
         const existingUser = await User.findOne({ email});
         if(existingUser){
@@ -23,6 +24,7 @@ module.exports.signup = async (req, res) => {
 
 module.exports.login = async (req, res) => {
     try {
+        console.log("Login request received: ", req.body);
         const { email, password } = req.body;
         if(!email || !password){
             return res.json({ message: "All fields are required" });
@@ -58,6 +60,7 @@ module.exports.login = async (req, res) => {
 }
 
 module.exports.logout = (req, res) =>{
+    console.log("Logout request received");
     res.clearCookie("token");
     return res.status(200).json({
         message: "User logged out successfully",
