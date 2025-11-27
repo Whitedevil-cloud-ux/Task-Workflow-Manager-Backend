@@ -14,7 +14,6 @@ module.exports = function initSockets(server) {
     cors: {
       origin: [
         "http://localhost:5173",
-        "https://taskflow-backend-4y7q.onrender.com",
         "https://task-workflow-manager-frontend.onrender.com",
       ],
       methods: ["GET", "POST"],

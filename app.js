@@ -47,12 +47,16 @@ server.listen(PORT, () => {
 
 app.use(
   cors({
-    origin: "*",
+    origin: [
+      "http://localhost:5173",
+      "https://task-workflow-manager-frontend.onrender.com",
+    ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
 
 app.get("/", (req, res) => {
   res.send("Backend is working!");
