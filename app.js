@@ -11,6 +11,8 @@ const workflowStageRoutes = require("./Routes/WorkflowStageRoute");
 const commentRoutes = require("./Routes/CommentRoute");
 const activityRoutes = require("./Routes/ActivityRoute");
 const notificationRoutes = require("./Routes/NotificationRoute");
+const aiRoutes = require("./Routes/AIRoute");
+
 
 // Models
 const User = require("./models/user");
@@ -72,5 +74,6 @@ app.use("/api/comments", commentRoutes);
 app.use("/users", userRoutes);
 app.use("/workflow-stages", workflowStageRoutes);
 app.use("/activity", activityRoutes);
+app.use("/api/ai", aiRoutes);
 
 app.use("/", authRoute);
