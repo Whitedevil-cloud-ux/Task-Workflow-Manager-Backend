@@ -1,4 +1,4 @@
-const { enhanceTask } = require("../services/AIService");
+const { enhanceTask, suggestSubtasks } = require("../services/AIService");
 
 exports.enhanceTaskController = async (req, res) => {
   try {
@@ -20,6 +20,29 @@ exports.enhanceTaskController = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "AI enhancement failed",
+    });
+  }
+};
+
+exports.suggestSubtasksController = async (req, res) => {
+  try{
+    const {title, description} = req.body;
+
+    if(!title) {
+      return res.status(400).json({message: "Title is required"});
+    }
+
+    const result = await suggestSubtasks({ title, description });
+
+    res.json({
+      success: true,
+      subtasks: result.subtasks,
+    });
+  }catch (error) {
+    console.error("AI Subtask Error: ", error);
+    res.status(500).json({
+      success: false,
+      message: "AI subtask generation failed",
     });
   }
 };

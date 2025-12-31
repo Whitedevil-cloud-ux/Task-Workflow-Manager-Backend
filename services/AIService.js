@@ -39,6 +39,37 @@ Description: ${description || "N/A"}
   }
 }
 
+async function suggestSubtasks({ title, description }) {
+  const prompt = `
+You are an expert software project manager.
+
+Generate 4 to 8 clear, actionable sub-tasks.
+
+Return STRICT JSON ONLY.
+NO markdown.
+NO explanations.
+
+Format:
+{
+  "subtasks": ["string", "string"]
+}
+
+Task Title: ${title}
+Task Description: ${description || "N/A"}
+`;
+
+  const response = await groq.chat.completions.create({
+    model: "llama-3.1-8b-instant",
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.3,
+    max_tokens: 300,
+  });
+
+  const raw = response.choices[0].message.content;
+  return safeJsonParse(raw);
+}
+
+
 function safeJsonParse(text) {
   const cleaned = text
     .replace(/```json/gi, "")
@@ -48,4 +79,4 @@ function safeJsonParse(text) {
   return JSON.parse(cleaned);
 }
 
-module.exports = { enhanceTask };
+module.exports = { enhanceTask, suggestSubtasks };
