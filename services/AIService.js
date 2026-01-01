@@ -69,6 +69,93 @@ Task Description: ${description || "N/A"}
   return safeJsonParse(raw);
 }
 
+async function explainTaskRisk(riskPayload) {
+  const prompt = `
+You are a senior project management assistant.
+
+You must explain task risk based ONLY on the provided data.
+Do NOT invent facts.
+Be concise and actionable.
+
+Return STRICT JSON ONLY.
+NO markdown.
+NO backticks.
+NO explanations outside JSON.
+
+Format:
+{
+  "summary": "string",
+  "reasons": ["string", "string"],
+  "suggestedAction": "string"
+}
+
+Risk Level: ${riskPayload.level}
+Risk Score: ${riskPayload.score}
+
+Task Signals:
+- Priority: ${riskPayload.signals.priority}
+- Status: ${riskPayload.signals.status}
+- Days to Due Date: ${riskPayload.signals.daysToDue ?? "N/A"}
+- Days Since Last Activity: ${riskPayload.signals.daysSinceActivity}
+- Subtasks Completed: ${riskPayload.signals.completedSubtasks}
+- Total Subtasks: ${riskPayload.signals.totalSubtasks}
+`;
+
+  const response = await groq.chat.completions.create({
+    model: "llama-3.1-8b-instant",
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.2,
+    max_tokens: 250,
+  });
+
+  const raw = response.choices[0].message.content;
+
+  try {
+    return safeJsonParse(raw);
+  } catch (err) {
+    console.error("AI RISK EXPLANATION RAW:", raw);
+    throw new Error("Invalid AI risk explanation format");
+  }
+}
+
+async function parseTaskFromText({ text, users }) {
+  const userList = users.map(u => `${u.name} (${u._id})`).join(", ");
+
+  const prompt = `
+You are an AI task parser.
+
+Extract task details from user text.
+
+Return STRICT JSON ONLY.
+NO markdown.
+NO explanations.
+
+Format:
+{
+  "title": "string",
+  "description": "string",
+  "priority": "Low | Medium | High | Critical",
+  "assigneeName": "string or null",
+  "dueDate": "ISO date string or null"
+}
+
+Available users:
+${userList}
+
+User input:
+"${text}"
+`;
+
+  const response = await groq.chat.completions.create({
+    model: "llama-3.1-8b-instant",
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.2,
+    max_tokens: 300,
+  });
+
+  return safeJsonParse(response.choices[0].message.content);
+}
+
 
 function safeJsonParse(text) {
   const cleaned = text
@@ -79,4 +166,4 @@ function safeJsonParse(text) {
   return JSON.parse(cleaned);
 }
 
-module.exports = { enhanceTask, suggestSubtasks };
+module.exports = { enhanceTask, suggestSubtasks, explainTaskRisk, parseTaskFromText };

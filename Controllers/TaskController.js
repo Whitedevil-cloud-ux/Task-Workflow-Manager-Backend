@@ -3,6 +3,8 @@ const WorkflowStage = require("../models/workflowstage");
 const mongoose = require("mongoose");
 const Activity = require("../models/activity");
 const { pushNotification } = require("../services/notificationService");
+const { analyzeTaskRisk } = require("../services/riskAnalyzer");
+const { explainTaskRisk } = require("../services/AIService");
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -396,6 +398,113 @@ exports.deleteSubtask = async (req, res) => {
     res.json({ success: true, subtasks: task.subtasks });
   } catch (err) {
     console.error("Delete subtask error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// -----------------------------------------
+// GET TASK RISK ANALYSIS (AI + Deterministic)
+// -----------------------------------------
+exports.getTaskRisk = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid task ID" });
+    }
+
+    const task = await Task.findById(id);
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    const activities = await Activity.find({ taskId: id })
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    const riskResult = analyzeTaskRisk(task, activities);
+
+    const aiExplanation = await explainTaskRisk(riskResult);
+
+    return res.json({
+      success: true,
+      risk: {
+        score: riskResult.score,
+        level: riskResult.level,
+        summary: aiExplanation.summary,
+        reasons: aiExplanation.reasons,
+        suggestedAction: aiExplanation.suggestedAction,
+      },
+    });
+
+  } catch (err) {
+    console.error("Task risk analysis error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// -----------------------------------------
+// CREATE TASK FROM NLP
+// -----------------------------------------
+exports.createTaskFromNLP = async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text) {
+      return res.status(400).json({ message: "Text is required" });
+    }
+
+    const users = await mongoose.model("User").find({}, "name _id");
+
+    const parsed = await require("../services/AIService")
+      .parseTaskFromText({ text, users });
+
+    const assignee = users.find(
+      (u) =>
+        parsed.assigneeName &&
+        u.name.toLowerCase() === parsed.assigneeName.toLowerCase()
+    );
+
+    if (!assignee) {
+      return res.status(400).json({
+        message: "Assignee not found",
+        parsed,
+      });
+    }
+
+    const stage = await WorkflowStage.findOne();
+    if (!stage) {
+      return res.status(400).json({ message: "No workflow stage found" });
+    }
+
+    const task = await Task.create({
+      title: parsed.title,
+      description: parsed.description || "",
+      priority: parsed.priority || "Medium",
+      createdBy: req.user.id,
+      assignedTo: assignee._id,
+      dueDate: 
+        parsed.dueDate && parsed.dueDate !== "null"
+          ? new Date(parsed.dueDate)
+          : null,
+      workflowStage: stage._id,
+      status: "todo",
+    });
+
+    await logActivity(
+      "TASK_CREATED_NLP",
+      req.user.id,
+      task._id,
+      "Created via NLP"
+    );
+
+    const populatedTask = await Task.findById(task._id)
+      .populate("createdBy", "name email avatar role")
+      .populate("assignedTo", "name email avatar role")
+      .populate("workflowStage");
+
+    res.status(201).json({ success: true, task: populatedTask });
+  } catch (err) {
+    console.error("NLP task error", err);
     res.status(500).json({ message: "Server error" });
   }
 };
